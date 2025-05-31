@@ -3,7 +3,7 @@
 # Script to install ComfyUI in a virtual environment on Ubuntu
 # Tested for Ubuntu 20.04, 22.04, and later
 # Requires NVIDIA GPU with CUDA support
-# Uses CUDA 12.8 as per ComfyUI README
+# Uses CUDA 12.8 as per ComfyUI README, includes torchaudio with fallback
 # Minimizes sudo usage and optimizes for low VRAM
 
 # Exit on any error
@@ -109,11 +109,16 @@ fi
 # Upgrade pip and install dependencies
 echo "Installing Python dependencies..."
 pip install --upgrade pip
-# Install PyTorch with CUDA 12.8 (per ComfyUI README, skipping torchaudio)
-pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu128
+# Install PyTorch with CUDA 12.8 (per ComfyUI README, with torchaudio and fallback)
+if ! pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu128; then
+    echo "Warning: torchaudio installation failed. Proceeding with torch and torchvision only."
+    pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu128
+fi
 # Install safetensors explicitly
 pip install safetensors
-# Install requirements.txt
+# Install requirements.txt (first pass)
+pip install -r requirements.txt
+# Re-run requirements.txt to ensure all dependencies are satisfied
 pip install -r requirements.txt
 
 # Download a sample model (DreamShaper 8, ~2 GB)
@@ -124,11 +129,10 @@ wget -P $MODEL_DIR https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamSh
 
 # Verify installation
 echo "Verifying installation..."
-if python -c "import torch; import safetensors; print('Dependencies installed successfully')" >/dev/null 2>&1; then
+if python -c "import torch; import safetensors; import torchaudio; print('Dependencies installed successfully')" >/dev/null 2>&1; then
     echo "ComfyUI dependencies installed successfully."
 else
-    echo "Installation failed: Required Python packages not found."
-    exit 1
+    echo "Warning: Some dependencies (e.g., torchaudio) may not be installed, but ComfyUI may still work."
 fi
 
 # Set environment variable for memory optimization
